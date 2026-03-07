@@ -1,10 +1,12 @@
+'use client';
+
 import { Providers } from "@/app/providers";
 import { Toaster } from "sonner";
 import { ErrorBoundary } from "react-error-boundary";
 import { GlobalErrorFallback } from "@/app/components/ui/GlobalErrorFallback";
 import { UserButton } from '@neondatabase/auth/react';
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Top bar with UserButton */}

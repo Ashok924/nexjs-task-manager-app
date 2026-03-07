@@ -1,4 +1,5 @@
 import { TaskManager } from "@/app/components/TaskManager";
+import AppShell from "@/app/components/ui/AppShell";
 import type { Task } from "@/app/utils/types";
 import prisma from "@/app/lib/prisma";
 
@@ -18,5 +19,9 @@ export default async function Home() {
     description: task.description || "",
   }));
 
-  return <TaskManager initialTasks={initialTasks} />;
+  return (
+    <AppShell>
+      <TaskManager initialTasks={initialTasks} />
+    </AppShell>
+  );
 }
