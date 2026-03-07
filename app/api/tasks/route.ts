@@ -1,29 +1,25 @@
 import { NextResponse } from "next/server";
-import { JSON_PLACEHOLDER_API_URL } from "@/app/utils/constants";
-import type { JSONPlaceholderTodo } from "@/app/utils/types";
 import { taskSchema } from "@/app/utils/validations";
+import prisma from "@/app/lib/prisma";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
     
-    // Fetch tasks, with optional search query
-    const url = query ? `${JSON_PLACEHOLDER_API_URL}?q=${encodeURIComponent(query)}` : JSON_PLACEHOLDER_API_URL;
-    const response = await fetch(url);
-    
-    if (!response.ok) throw new Error("Failed to fetch tasks");
-    
-    const todos: JSONPlaceholderTodo[] = await response.json();
-    
-    // Transform JSONPlaceholder data to match UI needs
-    const tasks = todos.map((todo) => ({
-      id: todo.id,
-      title: todo.title,
-      status: todo.completed ? "done" : "todo",
-      priority: "medium", // Default fallback
-      dueDate: new Date().toISOString().split('T')[0], // Default fallback
-    }));
+    const tasks = await prisma.task.findMany({
+      where: query ? {
+        title: {
+          contains: query,
+          mode: 'insensitive',
+        }
+      } : undefined,
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
 
     return NextResponse.json(tasks);
   } catch (error) {
@@ -46,31 +42,15 @@ export async function POST(request: Request) {
     
     const body = validation.data;
 
-    const response = await fetch(JSON_PLACEHOLDER_API_URL, {
-      method: "POST",
-      body: JSON.stringify({
+    const newTask = await prisma.task.create({
+      data: {
         title: body.title,
-        completed: body.status === "done",
-        userId: 1, // Default assigned user
-      }),
-      headers: {
-        "Content-type": "application/json; charset=UTF-8",
-      },
+        description: body.description || "",
+        status: body.status || "todo",
+        priority: body.priority || "medium",
+        dueDate: body.dueDate || new Date().toISOString().split('T')[0],
+      }
     });
-
-    if (!response.ok) throw new Error("Failed to create task");
-    
-    const newTodo = await response.json();
-    
-    // Note: JSONPlaceholder always returns id: 201 for POST responses.
-    const newTask = {
-      id: newTodo.id, 
-      title: body.title,
-      status: body.status || "todo",
-      priority: body.priority || "medium",
-      dueDate: body.dueDate || new Date().toISOString().split('T')[0],
-      description: body.description || "",
-    };
 
     return NextResponse.json(newTask, { status: 201 });
   } catch (error) {

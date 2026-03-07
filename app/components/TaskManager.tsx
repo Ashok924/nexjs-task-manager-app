@@ -36,12 +36,14 @@ export function TaskManager({ initialTasks }: TaskManagerProps) {
   const { data: tasks = initialTasks, isFetching: isSearching } = useQuery<Task[]>({
     queryKey: ["tasks", debouncedQuery],
     queryFn: async () => {
-      if (!debouncedQuery.trim()) return initialTasks;
-      const res = await fetch(`/api/tasks?q=${encodeURIComponent(debouncedQuery)}`);
+      const url = debouncedQuery.trim() 
+        ? `/api/tasks?q=${encodeURIComponent(debouncedQuery)}` 
+        : `/api/tasks`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Network response was not ok");
       return res.json();
     },
-    initialData: debouncedQuery ? undefined : initialTasks,
+    initialData: initialTasks,
   });
 
   const totalPages = Math.ceil(tasks.length / pageSize);

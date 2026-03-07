@@ -1,35 +1,26 @@
 import { NextResponse } from "next/server";
-import { JSON_PLACEHOLDER_API_URL } from "@/app/utils/constants";
 import { updateTaskSchema } from "@/app/utils/validations";
+import prisma from "@/app/lib/prisma";
 
-// Awaiting params covers compatibility for both Next.js 14 (sync) and Next.js 15+ (async params)
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams.id;
+    const id = parseInt(resolvedParams.id, 10);
     
-    const response = await fetch(`${JSON_PLACEHOLDER_API_URL}/${id}`);
-    
-    if (!response.ok) {
-      if (response.status === 404) {
-        return NextResponse.json({ error: "Task not found" }, { status: 404 });
-      }
-      throw new Error("Failed to fetch task");
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
     }
+
+    const task = await prisma.task.findUnique({
+      where: { id }
+    });
     
-    const todo = await response.json();
-    
-    const task = {
-      id: todo.id,
-      title: todo.title,
-      status: todo.completed ? "done" : "todo",
-      priority: "medium",
-      dueDate: new Date().toISOString().split('T')[0],
-      description: "",
-    };
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
 
     return NextResponse.json(task);
   } catch (error) {
@@ -44,7 +35,12 @@ export async function PUT(
 ) {
   try {
     const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams.id;
+    const id = parseInt(resolvedParams.id, 10);
+    
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
+    }
+    
     const rawBody = await request.json();
     const validation = updateTaskSchema.safeParse(rawBody);
 
@@ -57,31 +53,18 @@ export async function PUT(
 
     const body = validation.data;
     
-    const response = await fetch(`${JSON_PLACEHOLDER_API_URL}/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({
-        id: id,
+    const task = await prisma.task.update({
+      where: { id },
+      data: {
         title: body.title,
-        completed: body.status === "done",
-        userId: 1,
-      }),
-      headers: {
-        "Content-type": "application/json; charset=UTF-8",
-      },
+        description: body.description,
+        status: body.status,
+        priority: body.priority,
+        dueDate: body.dueDate,
+      }
     });
 
-    if (!response.ok) throw new Error("Failed to update task");
-    
-    const updatedTodo = await response.json();
-    
-    return NextResponse.json({
-      id: updatedTodo.id,
-      title: body.title || updatedTodo.title,
-      status: body.status || (updatedTodo.completed ? "done" : "todo"),
-      priority: body.priority || "medium",
-      dueDate: body.dueDate || null,
-      description: body.description || "",
-    });
+    return NextResponse.json(task);
   } catch (error) {
     console.error("PUT Tasks Error:", error);
     return NextResponse.json({ error: "Failed to update task" }, { status: 500 });
@@ -94,13 +77,15 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await Promise.resolve(params);
-    const id = resolvedParams.id;
+    const id = parseInt(resolvedParams.id, 10);
     
-    const response = await fetch(`${JSON_PLACEHOLDER_API_URL}/${id}`, {
-      method: "DELETE",
-    });
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "Invalid task ID" }, { status: 400 });
+    }
 
-    if (!response.ok) throw new Error("Failed to delete task");
+    await prisma.task.delete({
+      where: { id }
+    });
 
     return NextResponse.json({ message: "Task deleted successfully" });
   } catch (error) {
