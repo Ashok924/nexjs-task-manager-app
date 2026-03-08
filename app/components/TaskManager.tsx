@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getTasks, createTask, updateTask, deleteTask } from "@/app/actions/task.actions";
 import { AddTaskModal } from "./ui/AddTaskModal";
 import { DeleteTaskAlert } from "./ui/DeleteTaskAlert";
 import { useDebounce } from "@/app/hooks/useDebounce";
@@ -36,12 +37,7 @@ export function TaskManager({ initialTasks }: TaskManagerProps) {
   const { data: tasks = initialTasks, isFetching: isSearching } = useQuery<Task[]>({
     queryKey: ["tasks", debouncedQuery],
     queryFn: async () => {
-      const url = debouncedQuery.trim() 
-        ? `/api/tasks?q=${encodeURIComponent(debouncedQuery)}` 
-        : `/api/tasks`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Network response was not ok");
-      return res.json();
+      return getTasks(debouncedQuery.trim() ? debouncedQuery : undefined);
     },
     initialData: initialTasks,
   });
@@ -52,21 +48,13 @@ export function TaskManager({ initialTasks }: TaskManagerProps) {
   const saveTaskMutation = useMutation({
     mutationFn: async (taskData: Omit<Task, "id">) => {
       if (editingTask) {
-        const res = await fetch(`/api/tasks/${editingTask.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(taskData),
-        });
-        if (!res.ok) throw new Error("Failed to edit task");
-        return res.json();
+        const res = await updateTask(editingTask.id, taskData);
+        if (!res.success) throw new Error(res.error || "Failed to update task");
+        return res.task;
       } else {
-        const res = await fetch("/api/tasks", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(taskData),
-        });
-        if (!res.ok) throw new Error("Failed to create task");
-        return res.json();
+        const res = await createTask(taskData);
+        if (!res.success) throw new Error(res.error || "Failed to create task");
+        return res.task;
       }
     },
     onMutate: async (taskData) => {
@@ -93,7 +81,7 @@ export function TaskManager({ initialTasks }: TaskManagerProps) {
     onSettled: (data, error, variables) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       if (!error) {
-        toast.success(`Task ${editingTask ? 'updated' : 'created'} successfully`);
+        toast.success(editingTask ? "Task updated successfully" : "Task created successfully");
       }
     }
   });
@@ -101,8 +89,8 @@ export function TaskManager({ initialTasks }: TaskManagerProps) {
   // Handle Delete mutation
   const deleteTaskMutation = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete task");
+      const res = await deleteTask(id);
+      if (!res.success) throw new Error(res.error || "Failed to delete task");
     },
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["tasks", debouncedQuery] });
@@ -129,7 +117,7 @@ export function TaskManager({ initialTasks }: TaskManagerProps) {
   });
 
   const handleSaveTask = async (taskData: Omit<Task, "id">) => {
-    return saveTaskMutation.mutateAsync(taskData);
+    await saveTaskMutation.mutateAsync(taskData);
   };
 
   const openDeleteAlert = (task: Task) => {

@@ -88,7 +88,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <ErrorBoundary FallbackComponent={GlobalErrorFallback}>
               {children}
             </ErrorBoundary>
-            <Toaster position="top-right" richColors />
+            {/* Removed Toaster because NeonAuthUIProvider injects one natively, avoiding duplicate toasts */}
           </Providers>
         </div>
       </main>
